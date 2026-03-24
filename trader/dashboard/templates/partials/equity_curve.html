@@ -1,0 +1,54 @@
+{% if metrics %}
+<div class="grid">
+    <article>
+        <div class="grid">
+            <div>
+                <h4>{{ "%.1f"|format(metrics.win_rate * 100) }}%</h4>
+                <small>Win Rate</small>
+            </div>
+            <div>
+                <h4>${{ "%,.2f"|format(metrics.total_pnl) }}</h4>
+                <small>Total P&L</small>
+            </div>
+            <div>
+                <h4>{{ "%.2f"|format(metrics.sharpe_ratio) }}</h4>
+                <small>Sharpe Ratio</small>
+            </div>
+            <div>
+                <h4>{{ "%.1f"|format(metrics.max_drawdown * 100) }}%</h4>
+                <small>Max Drawdown</small>
+            </div>
+        </div>
+    </article>
+</div>
+{% endif %}
+
+<article>
+    <header>Equity Curve</header>
+    <div id="equity-chart" style="height: 400px;"></div>
+</article>
+
+<script>
+(function() {
+    const data = {{ equity_data|safe }};
+    const container = document.getElementById('equity-chart');
+    if (data.length > 0 && container) {
+        container.innerHTML = '';
+        const chart = LightweightCharts.createChart(container, {
+            layout: { background: { color: '#1a1a2e' }, textColor: '#e0e0e0' },
+            grid: { vertLines: { color: '#2a2a3e' }, horzLines: { color: '#2a2a3e' } },
+            width: container.clientWidth,
+            height: 400,
+        });
+        const series = chart.addAreaSeries({
+            lineColor: '#4caf50',
+            topColor: 'rgba(76, 175, 80, 0.4)',
+            bottomColor: 'rgba(76, 175, 80, 0.0)',
+        });
+        series.setData(data);
+        chart.timeScale().fitContent();
+    } else if (container) {
+        container.innerHTML = '<p>No equity data yet.</p>';
+    }
+})();
+</script>

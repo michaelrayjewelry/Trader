@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Performance — Trader{% endblock %}
+{% block content %}
+<h2>Performance</h2>
+
+<div hx-get="/partials/equity-curve" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <p aria-busy="true">Loading performance data...</p>
+</div>
+{% endblock %}

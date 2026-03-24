@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Trader Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/sse.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>Trader</strong></li>
+        </ul>
+        <ul>
+            <li><a href="/" {% if request.url.path == "/" %}aria-current="page"{% endif %}>Overview</a></li>
+            <li><a href="/trades" {% if request.url.path == "/trades" %}aria-current="page"{% endif %}>Trades</a></li>
+            <li><a href="/performance" {% if request.url.path == "/performance" %}aria-current="page"{% endif %}>Performance</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

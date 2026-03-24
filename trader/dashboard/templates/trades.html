@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Trades — Trader{% endblock %}
+{% block content %}
+<h2>Trade History</h2>
+
+<figure>
+<table>
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Value</th>
+            <th>Strategy</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for t in trades %}
+        <tr>
+            <td>{{ t.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td><strong>{{ t.symbol }}</strong></td>
+            <td class="{{ 'buy' if t.side == 'BUY' else 'sell' }}">{{ t.side }}</td>
+            <td>{{ "%.0f"|format(t.quantity) }}</td>
+            <td>${{ "%.2f"|format(t.price) }}</td>
+            <td>${{ "%,.2f"|format(t.value) }}</td>
+            <td>{{ t.strategy_name }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7">No trades yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+</figure>
+{% endblock %}

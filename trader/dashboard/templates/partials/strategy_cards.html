@@ -1,0 +1,18 @@
+<article>
+    <header>Strategies</header>
+    {% if strategies %}
+    {% for s in strategies %}
+    <article>
+        <header><strong>{{ s.name }}</strong></header>
+        <p>Symbols: {{ s.symbols|join(', ') }}</p>
+        <small>
+            {% for key, val in s.params.items() %}
+            {{ key }}: {{ val }}{% if not loop.last %} | {% endif %}
+            {% endfor %}
+        </small>
+    </article>
+    {% endfor %}
+    {% else %}
+    <p>No strategies configured.</p>
+    {% endif %}
+</article>

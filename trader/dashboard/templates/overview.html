@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Overview — Trader{% endblock %}
+{% block content %}
+<h2>Dashboard</h2>
+
+<div class="grid">
+    <div hx-get="/partials/portfolio-summary" hx-trigger="load, every 10s" hx-swap="innerHTML">
+        <p aria-busy="true">Loading portfolio...</p>
+    </div>
+</div>
+
+<div class="grid">
+    <div hx-get="/partials/recent-trades" hx-trigger="load, every 5s" hx-swap="innerHTML">
+        <p aria-busy="true">Loading trades...</p>
+    </div>
+    <div hx-get="/partials/strategy-cards" hx-trigger="load, every 15s" hx-swap="innerHTML">
+        <p aria-busy="true">Loading strategies...</p>
+    </div>
+</div>
+
+<div hx-get="/partials/ai-insights" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <p aria-busy="true">Loading AI insights...</p>
+</div>
+{% endblock %}

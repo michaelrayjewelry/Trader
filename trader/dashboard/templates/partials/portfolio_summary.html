@@ -1,0 +1,37 @@
+<article>
+    <header>Portfolio Summary</header>
+    <div class="grid">
+        <div>
+            <h3>${{ "%,.2f"|format(total_equity) }}</h3>
+            <small>Total Equity</small>
+        </div>
+        <div>
+            <h3>${{ "%,.2f"|format(cash) }}</h3>
+            <small>Cash Available</small>
+        </div>
+        <div>
+            <h3>{{ positions|length }}</h3>
+            <small>Open Positions</small>
+        </div>
+    </div>
+    {% if positions %}
+    <table>
+        <thead>
+            <tr><th>Symbol</th><th>Qty</th><th>Avg Entry</th><th>Current</th><th>P&L</th></tr>
+        </thead>
+        <tbody>
+            {% for p in positions %}
+            <tr>
+                <td><strong>{{ p.symbol }}</strong></td>
+                <td>{{ "%.0f"|format(p.quantity) }}</td>
+                <td>${{ "%.2f"|format(p.avg_entry_price) }}</td>
+                <td>${{ "%.2f"|format(p.current_price) }}</td>
+                <td class="{{ 'buy' if p.unrealized_pnl >= 0 else 'sell' }}">
+                    ${{ "%,.2f"|format(p.unrealized_pnl) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</article>

@@ -1,0 +1,13 @@
+<article>
+    <header>AI Insights</header>
+    {% if analyses %}
+    {% for a in analyses %}
+    <details {% if loop.first %}open{% endif %}>
+        <summary>{{ a.timestamp[:16] }} — {{ a.analysis_type }}</summary>
+        <div style="white-space: pre-wrap;">{{ a.content }}</div>
+    </details>
+    {% endfor %}
+    {% else %}
+    <p>No AI analysis yet. Analysis runs automatically after enough trades are recorded.</p>
+    {% endif %}
+</article>
