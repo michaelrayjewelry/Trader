@@ -34,7 +34,6 @@ class PerformanceTracker:
         if not trades:
             return metrics
 
-        # Match buy/sell trades per symbol to compute PnL
         pnls = self._compute_trade_pnls(trades)
         metrics.total_trades = len(pnls)
         metrics.winning_trades = sum(1 for p in pnls if p > 0)
@@ -49,54 +48,63 @@ class PerformanceTracker:
         metrics.avg_win = sum(wins) / len(wins) if wins else 0.0
         metrics.avg_loss = sum(losses) / len(losses) if losses else 0.0
 
-        # Equity-based metrics
         if equity_history:
             equities = [s.total_equity for s in sorted(equity_history, key=lambda s: s.timestamp)]
             metrics.max_drawdown = self._max_drawdown(equities)
             metrics.total_return_pct = ((equities[-1] - self.starting_cash) / self.starting_cash) * 100
 
-            # Daily returns for Sharpe
             if len(equities) > 1:
                 returns = [(equities[i] - equities[i - 1]) / equities[i - 1]
-                           for i in range(1, len(equities))]
+                           for i in range(1, len(equities)) if equities[i - 1] != 0]
                 metrics.sharpe_ratio = self._sharpe(returns)
 
         return metrics
 
     @staticmethod
     def _compute_trade_pnls(trades: list[Trade]) -> list[float]:
-        """Simple PnL: pair BUY then SELL for same symbol."""
-        buys: dict[str, list[Trade]] = {}
-        pnls = []
-        # Process in chronological order
+        """Pair BUY/SELL trades per (symbol, strategy) in FIFO order."""
+        buys: dict[tuple[str, str], list[Trade]] = {}
+        pnls: list[float] = []
         sorted_trades = sorted(trades, key=lambda t: t.timestamp)
         for t in sorted_trades:
+            key = (t.symbol, t.strategy_name)
             if t.side == "BUY":
-                buys.setdefault(t.symbol, []).append(t)
-            elif t.side == "SELL" and buys.get(t.symbol):
-                buy = buys[t.symbol].pop(0)
-                qty = min(buy.quantity, t.quantity)
-                pnls.append((t.price - buy.price) * qty)
+                buys.setdefault(key, []).append(t)
+            elif t.side == "SELL" and buys.get(key):
+                remaining_sell_qty = t.quantity
+                while remaining_sell_qty > 0 and buys.get(key):
+                    buy = buys[key][0]
+                    matched_qty = min(buy.quantity, remaining_sell_qty)
+                    pnls.append((t.price - buy.price) * matched_qty)
+                    buy.quantity -= matched_qty
+                    remaining_sell_qty -= matched_qty
+                    if buy.quantity <= 0:
+                        buys[key].pop(0)
         return pnls
 
     @staticmethod
     def _max_drawdown(equities: list[float]) -> float:
+        if not equities:
+            return 0.0
         peak = equities[0]
         max_dd = 0.0
         for eq in equities:
             if eq > peak:
                 peak = eq
-            dd = (peak - eq) / peak
-            if dd > max_dd:
-                max_dd = dd
+            if peak > 0:
+                dd = (peak - eq) / peak
+                if dd > max_dd:
+                    max_dd = dd
         return max_dd
 
     @staticmethod
-    def _sharpe(returns: list[float], risk_free: float = 0.0, periods: int = 252) -> float:
-        if not returns:
+    def _sharpe(returns: list[float], risk_free_annual: float = 0.0, periods: int = 252) -> float:
+        if len(returns) < 2:
             return 0.0
-        mean_r = sum(returns) / len(returns) - risk_free / periods
-        std_r = math.sqrt(sum((r - mean_r) ** 2 for r in returns) / len(returns))
+        mean_r = sum(returns) / len(returns)
+        excess = mean_r - risk_free_annual / periods
+        variance = sum((r - mean_r) ** 2 for r in returns) / (len(returns) - 1)
+        std_r = math.sqrt(variance)
         if std_r == 0:
             return 0.0
-        return (mean_r / std_r) * math.sqrt(periods)
+        return (excess / std_r) * math.sqrt(periods)

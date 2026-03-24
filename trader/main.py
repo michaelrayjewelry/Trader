@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import signal
+import sys
 
 import uvicorn
 
@@ -26,25 +29,49 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def print_banner(config, strategies, ai_enabled: bool) -> None:
+    """Print a friendly startup summary."""
+    symbols = set()
+    for s in strategies:
+        symbols.update(s.symbols)
+
+    print()
+    print("=" * 56)
+    print("  TRADER — Paper Trading Bot")
+    print("=" * 56)
+    print()
+    print(f"  Dashboard:    http://localhost:{config.dashboard.port}")
+    print(f"  API docs:     http://localhost:{config.dashboard.port}/api/docs")
+    print(f"  Starting cash: ${config.trading.starting_cash:,.2f}")
+    print(f"  Symbols:       {', '.join(sorted(symbols)) or 'none'}")
+    print(f"  Strategies:    {len(strategies)} active")
+    for s in strategies:
+        print(f"                 - {s.name} ({', '.join(s.symbols)})")
+    print(f"  Tick interval: {config.trading.tick_interval_seconds}s")
+    print(f"  Position size: {config.trading.position_size_pct:.0%} of equity per trade")
+    print(f"  AI analysis:   {'enabled' if ai_enabled else 'disabled (set ANTHROPIC_API_KEY)'}")
+    print(f"  Database:      {config.database_path}")
+    print()
+    print("  Press Ctrl+C to stop.")
+    print("=" * 56)
+    print()
+
+
 def build_components():
     """Wire up all components from config."""
     config = load_config()
 
-    # Database
     db = Database(config.database_path)
     db.init_schema()
 
-    # Event bus
     event_bus = EventBus()
 
-    # Broker
     broker = PaperBroker(
         db=db,
         starting_cash=config.trading.starting_cash,
         slippage_pct=config.broker.slippage_pct,
     )
 
-    # Strategies
     strategies = []
     sma_config = config.strategies.get("sma_crossover")
     if sma_config and sma_config.enabled:
@@ -54,22 +81,22 @@ def build_components():
             slow_period=sma_config.slow_period,
         ))
 
-    # Data provider
-    data_provider = YahooDataProvider()
+    if not strategies:
+        logger.warning("No strategies enabled — engine will run but won't trade")
 
-    # Performance tracker
+    data_provider = YahooDataProvider()
     performance_tracker = PerformanceTracker(starting_cash=config.trading.starting_cash)
 
-    # Claude analyst
+    ai_enabled = bool(os.environ.get("ANTHROPIC_API_KEY"))
     analyst = ClaudeAnalyst(model=config.analysis.model)
 
-    # Trading engine
     engine = TradingEngine(
         data_provider=data_provider,
         strategies=strategies,
         broker=broker,
         db=db,
         event_bus=event_bus,
+        position_size_pct=config.trading.position_size_pct,
     )
 
     # Wire up analysis trigger
@@ -84,11 +111,12 @@ def build_components():
             equity = queries.get_equity_history(db, limit=500)
             metrics = performance_tracker.calculate(trades, equity)
             params = {s.name: s.get_params() for s in strategies}
-            await analyst.review_performance(trades, metrics, params, db)
+            result = await analyst.review_performance(trades, metrics, params, db)
+            if result:
+                logger.info("AI analysis complete — view at /partials/ai-insights")
 
     event_bus.on("trade", maybe_run_analysis)
 
-    # Dashboard
     app = create_app(
         event_bus=event_bus,
         db=db,
@@ -99,18 +127,18 @@ def build_components():
         analyst=analyst,
     )
 
-    return app, engine, config
+    print_banner(config, strategies, ai_enabled)
+
+    return app, engine, config, db
 
 
 async def run():
-    app, engine, config = build_components()
+    app, engine, config, db = build_components()
 
-    # Start trading engine in background
     engine_task = asyncio.create_task(
         engine.run(interval_seconds=config.trading.tick_interval_seconds)
     )
 
-    # Start dashboard
     server_config = uvicorn.Config(
         app,
         host=config.dashboard.host,
@@ -121,13 +149,24 @@ async def run():
 
     try:
         await server.serve()
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Shutting down...")
     finally:
         engine.stop()
         engine_task.cancel()
+        try:
+            await engine_task
+        except asyncio.CancelledError:
+            pass
+        db.close()
+        logger.info("Shutdown complete.")
 
 
 def main():
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        print("\nStopped.")
 
 
 if __name__ == "__main__":

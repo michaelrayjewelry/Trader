@@ -3,21 +3,23 @@
     {% if trades %}
     <table>
         <thead>
-            <tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Price</th></tr>
+            <tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Price</th><th>Value</th></tr>
         </thead>
         <tbody>
             {% for t in trades[:10] %}
             <tr>
-                <td>{{ t.timestamp.strftime('%m/%d %H:%M') }}</td>
+                <td>{{ t.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td><strong>{{ t.symbol }}</strong></td>
                 <td class="{{ 'buy' if t.side == 'BUY' else 'sell' }}">{{ t.side }}</td>
                 <td>{{ "%.0f"|format(t.quantity) }}</td>
                 <td>${{ "%.2f"|format(t.price) }}</td>
+                <td>${{ "%,.2f"|format(t.value) }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <p>No trades yet. The bot is watching for signals...</p>
+    <p>No trades yet — the engine is watching for strategy signals.</p>
+    <small>Trades appear here automatically when a strategy generates a BUY or SELL signal.</small>
     {% endif %}
 </article>

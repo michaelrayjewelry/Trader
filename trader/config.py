@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -13,6 +17,7 @@ class TradingConfig:
     starting_cash: float = 100_000.0
     symbols: list[str] = field(default_factory=lambda: ["SPY"])
     tick_interval_seconds: int = 60
+    position_size_pct: float = 0.05  # % of equity per trade (0.05 = 5%)
 
 
 @dataclass
@@ -25,7 +30,7 @@ class StrategyConfig:
 
 @dataclass
 class BrokerConfig:
-    slippage_pct: float = 0.001
+    slippage_pct: float = 0.001  # 0.001 = 0.1% slippage
     commission_per_trade: float = 0.0
 
 
@@ -51,9 +56,42 @@ class AppConfig:
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
 
 
+def _validate_config(config: AppConfig) -> list[str]:
+    """Validate config and return list of warnings. Exit on fatal errors."""
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    if config.trading.starting_cash <= 0:
+        errors.append("trading.starting_cash must be > 0")
+
+    if not config.trading.symbols:
+        warnings.append("No symbols configured — engine won't have anything to trade")
+
+    if config.trading.position_size_pct <= 0 or config.trading.position_size_pct > 1:
+        errors.append("trading.position_size_pct must be between 0 and 1 (e.g. 0.05 = 5%)")
+
+    for name, strat in config.strategies.items():
+        if hasattr(strat, "fast_period") and hasattr(strat, "slow_period"):
+            if strat.fast_period >= strat.slow_period:
+                errors.append(f"strategies.{name}: fast_period ({strat.fast_period}) must be < slow_period ({strat.slow_period})")
+            if strat.fast_period < 2:
+                errors.append(f"strategies.{name}: fast_period must be >= 2")
+        if not strat.symbols:
+            warnings.append(f"strategies.{name}: no symbols — strategy won't trade")
+
+    if errors:
+        for e in errors:
+            logger.error("Config error: %s", e)
+        print("\nConfiguration errors found. Fix config.yaml and try again.")
+        sys.exit(1)
+
+    return warnings
+
+
 def load_config(path: str = "config.yaml") -> AppConfig:
     config_path = Path(path)
     if not config_path.exists():
+        logger.warning("No config.yaml found, using defaults")
         return AppConfig()
 
     with open(config_path) as f:
@@ -70,7 +108,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     analysis = AnalysisConfig(**raw.get("analysis", {}))
     db_path = raw.get("database", {}).get("path", "data/trader.db")
 
-    return AppConfig(
+    config = AppConfig(
         trading=trading,
         strategies=strategies,
         broker=broker,
@@ -78,3 +116,9 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         dashboard=dashboard,
         analysis=analysis,
     )
+
+    warnings = _validate_config(config)
+    for w in warnings:
+        logger.warning("Config: %s", w)
+
+    return config

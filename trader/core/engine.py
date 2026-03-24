@@ -34,45 +34,60 @@ class TradingEngine:
         self.event_bus = event_bus
         self.position_size_pct = position_size_pct
         self._running = False
+        self.last_tick_time: datetime | None = None
+        self.tick_count: int = 0
+        self.error_count: int = 0
+        self.last_error: str | None = None
+
+    @property
+    def status(self) -> str:
+        if not self._running:
+            return "stopped"
+        if self.tick_count == 0:
+            return "starting"
+        return "running"
 
     async def tick(self) -> None:
         """One iteration: fetch data, run strategies, execute orders."""
         for strategy in self.strategies:
             for symbol in strategy.symbols:
                 try:
-                    # Fetch latest bars
                     bars = await self.data_provider.get_bars(symbol, period="3mo", interval="1d")
                     if bars.empty:
+                        logger.debug("No data for %s, skipping", symbol)
                         continue
 
-                    # Update broker with latest price
                     current_price = float(bars["close"].iloc[-1])
                     self.broker.update_price(symbol, current_price)
 
-                    # Run strategy
                     signal = strategy.on_bar(symbol, bars)
                     if signal is None:
                         continue
 
-                    logger.info("Signal: %s %s from %s (strength=%.2f)",
-                                signal.direction, signal.symbol, signal.strategy_name, signal.strength)
+                    logger.info(
+                        "Signal: %s %s from %s (strength=%.2f) %s",
+                        signal.direction, signal.symbol, signal.strategy_name,
+                        signal.strength, signal.metadata,
+                    )
 
-                    # Convert signal to order
                     order = self._signal_to_order(signal)
                     if order is None:
                         continue
 
-                    # Execute
                     trade = self.broker.execute(order, strategy_name=strategy.name)
                     if trade:
                         await self.event_bus.emit("trade", trade)
 
-                except Exception:
+                except Exception as e:
+                    self.error_count += 1
+                    self.last_error = f"{symbol}/{strategy.name}: {e}"
                     logger.exception("Error processing %s with %s", symbol, strategy.name)
 
-        # Snapshot equity
+        self.tick_count += 1
+        self.last_tick_time = datetime.now()
+
         snapshot = PortfolioSnapshot(
-            timestamp=datetime.now(),
+            timestamp=self.last_tick_time,
             cash=self.broker.get_cash(),
             total_equity=self.broker.get_total_equity(),
         )
@@ -91,7 +106,6 @@ class TradingEngine:
         if quantity <= 0:
             return None
 
-        # For SELL signals, only sell if we have a position
         if signal.direction == "SELL":
             positions = self.broker.get_positions()
             held = sum(p.quantity for p in positions
@@ -111,7 +125,11 @@ class TradingEngine:
         self._running = True
         logger.info("Trading engine started (interval=%ds)", interval_seconds)
         while self._running:
-            await self.tick()
+            try:
+                await self.tick()
+            except Exception:
+                self.error_count += 1
+                logger.exception("Engine tick failed")
             await asyncio.sleep(interval_seconds)
 
     def stop(self) -> None:

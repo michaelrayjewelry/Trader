@@ -90,14 +90,25 @@ class PaperBroker(Broker):
                     del self._positions[key]
                     pos.quantity = 0
 
-        # Persist
-        queries.insert_trade(self.db, trade)
-        if pos:
-            queries.upsert_position(self.db, pos)
+        # Persist (both in one transaction for consistency)
+        try:
+            queries.insert_trade(self.db, trade)
+            if pos:
+                queries.upsert_position(self.db, pos)
+        except Exception:
+            logger.exception("Failed to persist trade %s — rolling back in-memory state", trade.id)
+            # Undo in-memory changes
+            if order.side == "BUY":
+                self._cash += cost
+                if key in self._positions and self._positions[key] is pos:
+                    del self._positions[key]
+            else:
+                self._cash -= cost
+            return None
 
         order.status = "FILLED"
-        logger.info("FILLED: %s %s %.2f shares @ $%.2f", order.side, order.symbol,
-                     order.quantity, fill_price)
+        logger.info("FILLED: %s %s %.0f shares @ $%.2f ($%,.2f)",
+                     order.side, order.symbol, order.quantity, fill_price, cost)
         return trade
 
     def get_positions(self) -> list[Position]:

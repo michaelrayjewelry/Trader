@@ -1,5 +1,7 @@
 <article>
     <header>Portfolio Summary</header>
+    {% set pnl = total_equity - starting_cash if starting_cash else 0 %}
+    {% set pnl_pct = ((total_equity - starting_cash) / starting_cash * 100) if starting_cash else 0 %}
     <div class="grid">
         <div>
             <h3>${{ "%,.2f"|format(total_equity) }}</h3>
@@ -8,6 +10,12 @@
         <div>
             <h3>${{ "%,.2f"|format(cash) }}</h3>
             <small>Cash Available</small>
+        </div>
+        <div>
+            <h3 class="{{ 'buy' if pnl >= 0 else 'sell' }}">
+                {{ "+" if pnl >= 0 else "" }}${{ "%,.2f"|format(pnl) }}
+            </h3>
+            <small>P&L ({{ "%+.2f"|format(pnl_pct) }}%)</small>
         </div>
         <div>
             <h3>{{ positions|length }}</h3>
@@ -27,7 +35,7 @@
                 <td>${{ "%.2f"|format(p.avg_entry_price) }}</td>
                 <td>${{ "%.2f"|format(p.current_price) }}</td>
                 <td class="{{ 'buy' if p.unrealized_pnl >= 0 else 'sell' }}">
-                    ${{ "%,.2f"|format(p.unrealized_pnl) }}
+                    {{ "+" if p.unrealized_pnl >= 0 else "" }}${{ "%,.2f"|format(p.unrealized_pnl) }}
                 </td>
             </tr>
             {% endfor %}

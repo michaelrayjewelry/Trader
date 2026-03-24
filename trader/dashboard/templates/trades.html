@@ -3,6 +3,8 @@
 {% block content %}
 <h2>Trade History</h2>
 
+{% if trades %}
+<p><small>Showing {{ trades|length }} most recent trades</small></p>
 <figure>
 <table>
     <thead>
@@ -27,10 +29,14 @@
             <td>${{ "%,.2f"|format(t.value) }}</td>
             <td>{{ t.strategy_name }}</td>
         </tr>
-        {% else %}
-        <tr><td colspan="7">No trades yet.</td></tr>
         {% endfor %}
     </tbody>
 </table>
 </figure>
+{% else %}
+<article>
+    <p>No trades yet.</p>
+    <small>Trades will appear here once the engine generates signals and executes orders. Check the Overview page for engine status.</small>
+</article>
+{% endif %}
 {% endblock %}

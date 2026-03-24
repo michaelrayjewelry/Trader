@@ -4,10 +4,12 @@
         <div class="grid">
             <div>
                 <h4>{{ "%.1f"|format(metrics.win_rate * 100) }}%</h4>
-                <small>Win Rate</small>
+                <small>Win Rate ({{ metrics.winning_trades }}W / {{ metrics.losing_trades }}L)</small>
             </div>
             <div>
-                <h4>${{ "%,.2f"|format(metrics.total_pnl) }}</h4>
+                <h4 class="{{ 'buy' if metrics.total_pnl >= 0 else 'sell' }}">
+                    {{ "+" if metrics.total_pnl >= 0 else "" }}${{ "%,.2f"|format(metrics.total_pnl) }}
+                </h4>
                 <small>Total P&L</small>
             </div>
             <div>
@@ -30,25 +32,33 @@
 
 <script>
 (function() {
-    const data = {{ equity_data|safe }};
-    const container = document.getElementById('equity-chart');
-    if (data.length > 0 && container) {
-        container.innerHTML = '';
-        const chart = LightweightCharts.createChart(container, {
+    var data = {{ equity_data|safe }};
+    var container = document.getElementById('equity-chart');
+    if (!container) return;
+    if (!data || data.length === 0) {
+        container.innerHTML = '<p>No equity data yet — chart appears after the first engine tick.</p>';
+        return;
+    }
+    container.innerHTML = '';
+    try {
+        var chart = LightweightCharts.createChart(container, {
             layout: { background: { color: '#1a1a2e' }, textColor: '#e0e0e0' },
             grid: { vertLines: { color: '#2a2a3e' }, horzLines: { color: '#2a2a3e' } },
             width: container.clientWidth,
             height: 400,
         });
-        const series = chart.addAreaSeries({
+        var series = chart.addAreaSeries({
             lineColor: '#4caf50',
             topColor: 'rgba(76, 175, 80, 0.4)',
             bottomColor: 'rgba(76, 175, 80, 0.0)',
         });
         series.setData(data);
         chart.timeScale().fitContent();
-    } else if (container) {
-        container.innerHTML = '<p>No equity data yet.</p>';
+        window.addEventListener('resize', function() {
+            chart.applyOptions({ width: container.clientWidth });
+        });
+    } catch(e) {
+        container.innerHTML = '<p>Chart error: ' + e.message + '</p>';
     }
 })();
 </script>

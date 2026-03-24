@@ -7,6 +7,7 @@ trading:
     - AMZN
     - SPY
   tick_interval_seconds: 60
+  position_size_pct: 0.05  # 5% of equity per trade
 
 strategies:
   sma_crossover:
@@ -19,7 +20,7 @@ strategies:
       - SPY
 
 broker:
-  slippage_pct: 0.001
+  slippage_pct: 0.001  # 0.1% simulated slippage
   commission_per_trade: 0.0
 
 database:

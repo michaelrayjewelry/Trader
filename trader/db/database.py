@@ -50,6 +50,11 @@ CREATE TABLE IF NOT EXISTS analysis_results (
     content TEXT NOT NULL,
     recommendations TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_strategy ON trades(strategy_name);
+CREATE INDEX IF NOT EXISTS idx_equity_timestamp ON equity_snapshots(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_equity_strategy ON equity_snapshots(strategy_name);
 """
 
 
@@ -62,10 +67,11 @@ class Database:
     @property
     def conn(self) -> sqlite3.Connection:
         if self._conn is None:
-            self._conn = sqlite3.connect(str(self.db_path))
+            self._conn = sqlite3.connect(str(self.db_path), timeout=10)
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
+            self._conn.execute("PRAGMA busy_timeout=5000")
         return self._conn
 
     def init_schema(self) -> None:

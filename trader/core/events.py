@@ -20,7 +20,10 @@ class EventBus:
         self._handlers[event].append(handler)
 
     def off(self, event: str, handler: Callable) -> None:
-        self._handlers[event].remove(handler)
+        try:
+            self._handlers[event].remove(handler)
+        except ValueError:
+            pass
 
     async def emit(self, event: str, data: Any = None) -> None:
         for handler in self._handlers.get(event, []):

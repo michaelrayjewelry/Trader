@@ -4,15 +4,15 @@
     {% for s in strategies %}
     <article>
         <header><strong>{{ s.name }}</strong></header>
-        <p>Symbols: {{ s.symbols|join(', ') }}</p>
-        <small>
-            {% for key, val in s.params.items() %}
-            {{ key }}: {{ val }}{% if not loop.last %} | {% endif %}
+        <p>Watching: {{ s.symbols|join(', ') }}</p>
+        <div>
+            {% for key, val in s.params.items() if key != 'symbols' %}
+            <kbd>{{ key }}: {{ val }}</kbd>{{ " " if not loop.last }}
             {% endfor %}
-        </small>
+        </div>
     </article>
     {% endfor %}
     {% else %}
-    <p>No strategies configured.</p>
+    <p>No strategies configured. Check <code>config.yaml</code> to enable strategies.</p>
     {% endif %}
 </article>

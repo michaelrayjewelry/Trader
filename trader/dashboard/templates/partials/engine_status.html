@@ -1,0 +1,22 @@
+<div class="engine-status">
+    <div class="grid">
+        <div>
+            <span class="status-dot {{ status }}"></span>
+            <strong>Engine: {{ status|upper }}</strong>
+            {% if last_tick %}
+            <small> — last tick {{ last_tick.strftime('%H:%M:%S') }}</small>
+            {% endif %}
+        </div>
+        <div style="text-align: right;">
+            <small>
+                Ticks: {{ tick_count }} |
+                Trades: {{ trade_count }} |
+                Errors: {{ error_count }}
+                {% if not ai_enabled %} | AI: off (no API key){% endif %}
+            </small>
+        </div>
+    </div>
+    {% if last_error %}
+    <small class="sell">Last error: {{ last_error }}</small>
+    {% endif %}
+</div>
